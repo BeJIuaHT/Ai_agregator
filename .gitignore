@@ -3,3 +3,8 @@
 node_modules/
 __pycache__/
 .venv/
+workspace/keys/
+workspace/output/
+*.pem
+id_*
+!*.pub

@@ -1,0 +1,6 @@
+# <subdir under ComfyUI/models>  <filename>  <url>
+# Fill after the target video model is chosen. Examples of subdirs:
+# checkpoints | diffusion_models | vae | text_encoders | loras | controlnet | clip_vision
+#
+# checkpoints   example.safetensors   https://huggingface.co/<org>/<repo>/resolve/main/example.safetensors
+# vae           example_vae.safetensors   https://huggingface.co/<org>/<repo>/resolve/main/vae.safetensors
