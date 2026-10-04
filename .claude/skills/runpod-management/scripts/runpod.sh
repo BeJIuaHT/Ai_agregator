@@ -3,6 +3,7 @@
 # Usage: runpod.sh <command> [args]   (loads .env from repo root)
 # Read-only: gpus | dcs | pods | pod <id> | volumes
 # Billable (need RUNPOD_ALLOW_SPEND=yes): create-volume | create-pod
+# Billable, no volume: create-pod-novol <name> [SECURE|COMMUNITY] [disk_gb]
 # Stop/cleanup: stop <id> | terminate <id> | delete-volume <id>
 set -euo pipefail
 
@@ -47,6 +48,24 @@ print(json.dumps({
   "gpuTypeIds":[gpu],"gpuCount":1,"dataCenterIds":[dc],
   "networkVolumeId":vol,"volumeMountPath":"/workspace",
   "containerDiskInGb":50,
+  "imageName":"runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04",
+  "ports":["8188/http","22/tcp"],
+  "supportPublicIp":True,
+  "env":{"PUBLIC_KEY":pub}}))
+PY
+)
+    rest POST /pods "$body" ;;
+  create-pod-novol) # <name> [cloud=SECURE|COMMUNITY] [disk_gb=30]  (no volume, no DC pin, GPU chain in order)
+    need_spend
+    pub="$(cat "$ROOT/${SSH_PUBLIC_KEY_FILE:-workspace/keys/runpod_ed25519.pub}")"
+    body=$(python3 - "${1:?name}" "${2:-SECURE}" "${3:-30}" "$pub" <<'PY'
+import json,sys
+name,cloud,disk,pub=sys.argv[1:5]
+print(json.dumps({
+  "name":name,"computeType":"GPU","cloudType":cloud,
+  "gpuTypeIds":["NVIDIA RTX A4000","NVIDIA RTX A4500","NVIDIA RTX 4000 Ada Generation","NVIDIA GeForce RTX 3090","NVIDIA GeForce RTX 4090"],
+  "gpuTypePriority":"custom","gpuCount":1,
+  "containerDiskInGb":int(disk),
   "imageName":"runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04",
   "ports":["8188/http","22/tcp"],
   "supportPublicIp":True,
