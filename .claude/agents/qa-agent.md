@@ -2,7 +2,7 @@
 name: qa-agent
 description: Runs a test video generation, checks status via /history, and validates the saved video file. Use as the final gate after provisioning and workflow preparation.
 tools: Bash, Read, Skill, mcp__fetch__fetch, mcp__filesystem__read_text_file, mcp__filesystem__list_directory, mcp__filesystem__get_file_info
-model: sonnet
+model: haiku
 maxTurns: 20
 skills:
   - comfyui-api-workflow
