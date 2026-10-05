@@ -13,6 +13,7 @@ import json
 import mimetypes
 import secrets
 import shutil
+import struct
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -49,6 +50,8 @@ h2{margin:18px 0 8px;font-size:15px;opacity:.8;font-weight:600}
 .meta{padding:6px 8px;font-size:12px;word-break:break-all}
 .meta small{display:block;opacity:.6;margin-top:2px}
 .card button{margin:0 8px 8px}
+.card pre{margin:0 8px 8px;padding:6px;background:#111;border-radius:6px;font-size:11px;
+  white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;user-select:text}
 #lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:5}
 #lb img{max-width:96vw;max-height:96vh}
 </style></head><body>
@@ -102,7 +105,20 @@ function card(f){
     const r=await fetch(area==='output'?'/api/archive':'/api/restore',{method:'POST',body:JSON.stringify({path:f.path})});
     if(r.ok){files=files.filter(x=>x.path!==f.path);render()} else {b.disabled=false;alert('Ошибка: '+await r.text())}
   };
-  c.append(img,meta,b); return c;
+  const pb=document.createElement('button'); pb.textContent='Промт';
+  const pre=document.createElement('pre'); pre.hidden=true;
+  pb.onclick=async()=>{
+    if(!pre.hidden){pre.hidden=true;return}
+    if(!pre.dataset.loaded){
+      const r=await fetch('/api/prompt?'+q(f)); const p=await r.json();
+      pre.textContent=!p?'Промт в файле не найден':
+        'Positive:\\n'+p.positive+(p.negative?'\\n\\nNegative:\\n'+p.negative:'')+
+        ['seed','steps','cfg'].filter(k=>k in p).map(k=>'\\n'+k+': '+p[k]).join('');
+      pre.dataset.loaded=1;
+    }
+    pre.hidden=false;
+  };
+  c.append(img,meta,pb,pre,b); return c;
 }
 async function load(){files=await (await fetch('/api/list?a='+area)).json();render()}
 for(const a of ['output','archive'])
@@ -112,6 +128,46 @@ $('lb').onclick=()=>{$('lb').style.display='none';$('lbimg').src=''};
 load();
 </script></body></html>
 """
+
+
+def read_prompt(path):
+    """Достаёт промт из PNG-метаданных ComfyUI (tEXt 'prompt'): positive/negative/seed."""
+    if path.suffix.lower() != ".png":
+        return None
+    data = path.read_bytes()
+    graph, i = None, 8
+    while i + 8 <= len(data):
+        n, kind = struct.unpack(">I4s", data[i:i + 8])
+        if kind == b"tEXt":
+            key, _, val = data[i + 8:i + 8 + n].partition(b"\0")
+            if key == b"prompt":
+                graph = json.loads(val.decode("utf-8", "replace"))
+                break
+        if kind == b"IDAT":  # метаданные ComfyUI идут до данных изображения
+            break
+        i += 12 + n
+    if not isinstance(graph, dict):
+        return None
+
+    def text_of(ref):
+        node = graph.get(ref[0]) if isinstance(ref, list) and ref else None
+        t = node.get("inputs", {}).get("text") if node else None
+        return t if isinstance(t, str) else None
+
+    res = {}
+    for node in graph.values():
+        inp = node.get("inputs", {})
+        if "positive" in inp and "negative" in inp:  # сэмплер
+            res["positive"], res["negative"] = text_of(inp["positive"]), text_of(inp["negative"])
+            for k in ("seed", "steps", "cfg"):
+                if isinstance(inp.get(k), (int, float)):
+                    res[k] = inp[k]
+            break
+    if not res.get("positive"):  # нестандартный граф: все текстовые энкодеры
+        texts = [n["inputs"]["text"] for n in graph.values()
+                 if "CLIPTextEncode" in n.get("class_type", "") and isinstance(n["inputs"].get("text"), str)]
+        res["positive"] = "\n---\n".join(texts) or None
+    return res if res.get("positive") else None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -187,6 +243,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_bytes(200, PAGE.encode(), "text/html; charset=utf-8", headers)
         if url.path == "/api/list":
             return self.send_bytes(200, json.dumps(self.list_files(self.area(q))).encode(), "application/json")
+        if url.path == "/api/prompt":
+            src = self.resolve(unquote(q.get("p", [""])[0]), self.area(q))
+            if not src or not src.is_file() or src.suffix.lower() not in IMG_EXT:
+                return self.send_bytes(404, b"not found")
+            try:
+                info = read_prompt(src)
+            except Exception:  # битые метаданные
+                info = None
+            return self.send_bytes(200, json.dumps(info).encode(), "application/json")
         if url.path in ("/file", "/thumb"):
             src = self.resolve(unquote(q.get("p", [""])[0]), self.area(q))
             if not src or not src.is_file() or src.suffix.lower() not in IMG_EXT:
