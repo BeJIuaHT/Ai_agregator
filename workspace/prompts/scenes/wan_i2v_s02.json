@@ -1,0 +1,15 @@
+{
+ "format": "wan_i2v",
+ "style": "wan_i2v_anime",
+ "negative": "wan_i2v_anime",
+ "motion": "",
+ "start_frame": "workspace/archive/бой_в_лесу_дубль_2/кадр_2.3.png",
+ "labels": {
+  "knight": "characters/kn_knight_label",
+  "rogue": "characters/rg_rogue_label"
+ },
+ "seen": "Medium shot: knight (left foreground, wide lunge, head down) mid-swing, greatsword blurred diagonally over his shoulder, pale shards flying around the blade; red-haired rogue (right, up on her toes) with a long blade raised at shoulder height pointing left, mouth open, ponytail flying. Open meadow, hills, clouds. No enemies visible.",
+ "action": "{knight} twists his hips and brings his greatsword down in a fast, heavy diagonal chop, the tip arcing to the left as pale shards fly off the blade. At the same moment {rogue} steps forward on her toes and slashes her long blade down and to the left, shouting, her ponytail streaming. The swing ends with the greatsword low beside his front leg and the shards dropping into the grass.",
+ "camera": "The camera tracks slightly left with the swing, handheld, with a small shake at the impact.",
+ "plot_ru": "Кадр 2 (средний план). Рыцарь доводит удар двуручником по диагонали вниз-влево, осколки разлетаются и падают в траву; разбойница справа одновременно рубит клинком вниз-влево. Камера чуть едет влево с ударом, лёгкая тряска. Врагов в кадре нет (скелеты остались за кадром слева)."
+}

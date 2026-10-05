@@ -1,0 +1,15 @@
+{
+ "format": "wan_i2v",
+ "style": "wan_i2v_anime",
+ "negative": "wan_i2v_anime",
+ "motion": "",
+ "start_frame": "workspace/archive/бой_в_лесу_дубль_2/кадр_1.6.png",
+ "labels": {
+  "knight": "characters/kn_knight_label",
+  "rogue": "characters/rg_rogue_label"
+ },
+ "seen": "High-angle view over a sunlit meadow: red-haired rogue (upper left) holds a long blade extended toward the knight; knight (right, wide crouching lunge, black scarf streaming right) holds a greatsword low with the tip toward the lower-left foreground. No monsters: a duel.",
+ "action": "{rogue} steps forward and drives her long blade at {knight}. Crouched in a wide lunge, he whips his greatsword up in a fast rising arc and knocks her blade aside with a loud clang and a burst of sparks. She is thrown back a step, her ponytail whipping, while his black scarf snaps in the wind and grass blades and petals blow across the field.",
+ "camera": "The camera looks down from above and pushes in slowly.",
+ "plot_ru": "Кадр 1 (общий план сверху). По факту картинки это дуэль: разбойница выпадом бьёт клинком, рыцарь снизу вверх отбивает двуручником, искры, она отскакивает на шаг. Камера медленно приближается сверху. Монстров в кадре нет."
+}

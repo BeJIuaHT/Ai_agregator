@@ -33,7 +33,9 @@ Scripts in `scripts/` run **on the pod** and are copied via `scp`. `/workspace` 
 - **Speed gate first.** Files over 300 MB need at least 100 MB/s; otherwise stop and have the pod recreated on another host. Never grind on a slow host.
 - **Torch 2.7+.** The `runpod/pytorch:2.4.0` image has torch 2.4.1, on which current ComfyUI crashes (`comfy_kitchen`, `infer_schema ... list[int]`). `setup_comfyui.sh` fixes it with `pip install torch==2.7.1 ... cu126` (override via `TORCH_VERSION`, `TORCH_INDEX`); or pass an image with torch 2.7+ through `RUNPOD_IMAGE` (verify the tag exists, do not guess).
 - **No aria2c.** It is not preinstalled; `download_models.sh` uses curl ranges + `dd conv=notrunc oflag=seek_bytes`, no segment files, no double disk use.
-- **Disk.** Community pod `/workspace` is about 20 GB regardless of the requested container disk.
+- **Disk.** Community pod `/workspace` is about 20 GB regardless of the requested container disk. For big weights (30+ GB) create the pod with a large container disk (e.g. 100 GB) and run both scripts with `WS=/root/ws` and `MODELS_DIR=/root/ws/ComfyUI/models`.
+- **Parallel setup + download is safe.** `download_models.sh` may create `ComfyUI/models` before `setup_comfyui.sh` runs `git clone`; the setup script clones aside and merges, so run them at the same time.
+- **Manifest lines:** `<subdir> <filename> <url>`, comments only on their own `#` line (the loop reads `url` as the rest of the line, a trailing `# note` would end up in the URL).
 - **Keep ComfyUI alive:** `setsid nohup ... < /dev/null &`.
 - **Time box:** 15 minutes for the whole provisioning; report and stop at the limit.
 - **pkill trap:** never `pkill -f <pattern>` inside a Bash/ssh command (kills your own shell); use `[x]` bracket patterns, `pgrep -x` or a PID.

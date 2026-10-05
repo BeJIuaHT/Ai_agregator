@@ -15,12 +15,19 @@ Scene JSON (workspace/prompts/scenes/<scene>.json):
   "lead": "1boy, 1girl, safe",                # tags format: placed FIRST (subject count, rating) per Animagine order
   "quality": "quality_animagine",             # blocks/style/*.txt placed LAST (tags format); "style" then goes before it
   "plot_ru": "ignored by the script",
-  "format": "tags"                            # tags (SDXL/Danbooru) | natural (Wan/Flux/LTX sentences)
+  "format": "tags"                            # tags (SDXL/Danbooru) | natural (Wan/Flux/LTX sentences) | wan_i2v
 }
+Format "wan_i2v" (Wan 2.2 image-to-video, see prompts/model_notes/wan-2.2-i2v.md): the start image already defines the
+look, so NO characters/outfit/location/extras are pasted. Positive = action + camera + style, in that order:
+  "labels": {"knight": "characters/kn_knight_label"},   # short anchors, blocks/<category>/<name>.txt; used as {knight} in action/camera
+  "action": "{knight} swings his greatsword ...",       # subject motion, present tense, one beat
+  "camera": "The camera pushes in slowly.",
+  "style": "wan_i2v_anime",                             # optional short style block, appended last
+  "start_frame": "workspace/archive/.../frame.png"      # informational (printed in the built file)
 Usage: assemble_prompt.py <scene.json|name> [--out workspace/prompts/built] [--json]
 Prints positive and negative prompt; writes <out>/<scene>.txt. Duplicate tags are removed (order kept).
 """
-import json, sys
+import json, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -62,6 +69,22 @@ def build(scene):
         else:
             parts = [style] + body
         positive = ", ".join(dedupe(parts))
+    elif scene.get("format") == "wan_i2v":
+        labels = {k: block(*v.split("/", 1)) for k, v in scene.get("labels", {}).items()}
+        def fill(t):
+            try:
+                t = t.format(**labels)
+                # labels are lowercase ("the knight"): capitalise sentence starts
+                return re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), t)
+            except KeyError as e:
+                sys.exit(f"unknown label {e} in scene text; define it under 'labels'")
+        def sentence(s):
+            return s.strip().rstrip(".") + "." if s and s.strip() else ""
+        parts = [fill(scene.get("action", "")), fill(scene.get("camera", ""))]
+        positive = " ".join(x.strip() for x in parts if x.strip())
+        if style:
+            positive = positive + " " + sentence(style)
+        positive = positive.strip()
     else:  # natural language: one sentence per element, in reading order
         def sentence(s):
             return s.strip().rstrip(".") + "." if s and s.strip() else ""
@@ -88,6 +111,13 @@ def lint(scene, positive):
         warns.append("1boy conflicts with 2boys/multiple boys")
     if "1girl" in tags and ("2girls" in tags or "multiple girls" in tags):
         warns.append("1girl conflicts with 2girls/multiple girls")
+    if scene.get("format") == "wan_i2v":
+        words = len(positive.split())
+        if words > 100:
+            warns.append(f"wan_i2v prompt {words} words > 100 (official I2V prompt-extension limit)")
+        if words < 30:
+            warns.append(f"wan_i2v prompt only {words} words; Wan fills gaps with its own motion")
+        return words, warns
     n = est_tokens(positive)
     if n > 225:
         warns.append(f"positive ~{n} tokens > 225 (more than 3 CLIP chunks)")
@@ -105,8 +135,13 @@ if __name__ == "__main__":
     scene = json.loads(src.read_text(encoding="utf-8"))
     positive, negative, motion = build(scene)
     n, warns = lint(scene, positive)
-    print(f"[{src.stem}] positive ~{n} tokens (chunks of 75), tags={len(positive.split(','))}; warnings: {warns or 'none'}", file=sys.stderr)
-    text = f"POSITIVE:\n{positive}\n\nNEGATIVE:\n{negative}\n" + (f"\nMOTION:\n{motion}\n" if motion else "")
+    if scene.get("format") == "wan_i2v":
+        print(f"[{src.stem}] wan_i2v prompt {n} words; warnings: {warns or 'none'}", file=sys.stderr)
+        text = f"POSITIVE:\n{positive}\n\nNEGATIVE:\n{negative}\n" \
+            + (f"\nSTART_FRAME:\n{scene['start_frame']}\n" if scene.get("start_frame") else "")
+    else:
+        print(f"[{src.stem}] positive ~{n} tokens (chunks of 75), tags={len(positive.split(','))}; warnings: {warns or 'none'}", file=sys.stderr)
+        text = f"POSITIVE:\n{positive}\n\nNEGATIVE:\n{negative}\n" + (f"\nMOTION:\n{motion}\n" if motion else "")
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / f"{src.stem}.txt").write_text(text, encoding="utf-8")
     if "--json" in sys.argv:

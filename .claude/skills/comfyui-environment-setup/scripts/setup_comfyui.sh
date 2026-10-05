@@ -9,7 +9,15 @@ NODES="$COMFY/custom_nodes"
 
 apt-get update -qq && apt-get install -y -qq git ffmpeg curl >/dev/null
 
-[ -d "$COMFY/.git" ] || git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFY"
+# download_models.sh may run in parallel and create $COMFY/models first; `git clone` refuses a non-empty dir,
+# so clone aside and merge on top (keeps files that are already downloading).
+if [ ! -d "$COMFY/.git" ]; then
+  tmp="$COMFY.clone.$$"
+  git clone https://github.com/comfyanonymous/ComfyUI.git "$tmp"
+  mkdir -p "$COMFY"
+  cp -a "$tmp"/. "$COMFY"/
+  rm -rf "$tmp"
+fi
 
 # venv lives on the volume so it survives pod recreation
 [ -d "$WS/venv" ] || python3 -m venv --system-site-packages "$WS/venv"

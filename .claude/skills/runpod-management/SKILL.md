@@ -5,7 +5,11 @@ description: Build and send RunPod API requests (REST v1 + GraphQL) to find GPUs
 
 # runpod-management
 
-All authenticated calls go through `scripts/runpod.sh` (curl + Bearer token from `.env`).
+All authenticated calls go through `scripts/runpod.sh` (curl + Bearer token from `.env`) or its sibling `scripts/runpod_video.sh`.
+**Two scripts, pick by the approved `workspace/plan.md`:**
+- Video runs (Wan / ComfyUI video): `runpod_video.sh`. Same commands and the same `RUNPOD_ALLOW_SPEND` gate; price cap `RUNPOD_MAX_PRICE` defaults to **$2/h** (script-local, not in `.env`), GPU chain for `create-pod-novol` is 24 GB+ only (`NVIDIA GeForce RTX 4090` -> `NVIDIA GeForce RTX 3090` -> `NVIDIA RTX A5000`), default disk **100 GB**. After creation it prints GPU and $/h and a WARNING above $0.50/h (the Wan plan expects <= $0.34): terminate unless the orchestrator approved that price.
+- Everything else (images/SDXL, tests, read-only work): `runpod.sh` (cap **$0.25/h**, chain A4000 -> A4500 -> 4000 Ada -> 3090 -> 4090, disk 30 GB).
+The $2/h cap applies only to video runs that the user approved in `workspace/plan.md`; never use `runpod_video.sh` for non-video work. The rest of this document describes `runpod.sh`; `runpod_video.sh` differs only in the points above.
 The `fetch` MCP cannot send auth headers or POST, so do not use it for RunPod.
 **Creating anything billable is blocked unless `RUNPOD_ALLOW_SPEND=yes`.** The flag stays `no` until the user approves a plan; never edit it yourself.
 

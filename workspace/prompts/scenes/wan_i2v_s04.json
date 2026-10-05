@@ -1,0 +1,16 @@
+{
+ "format": "wan_i2v",
+ "style": "wan_i2v_anime",
+ "negative": "wan_i2v_anime",
+ "motion": "",
+ "start_frame": "workspace/archive/бой_в_лесу_дубль_2/кадр_4.3.png",
+ "labels": {
+  "knight": "characters/kn_knight_label",
+  "rogue": "characters/rg_rogue_label",
+  "skeletons": "extras/sk_skeleton_label"
+ },
+ "seen": "Low angle, back to back: knight (left, smirking, greatsword out to the left) and red-haired rogue (front right, torn blue-black cape streaming, curved blade pointing lower right). Behind them 3-4 huge washed-out, semi-transparent skeletons blending into the sky.",
+ "action": "{knight} and {rogue} stay back to back and rotate together a quarter turn. He sweeps his greatsword out to the left in a wide, fast arc while she flicks her curved blade out to the right. Behind them {skeletons} lurch one step closer with their arms reaching. Her torn cape and ponytail whip in the wind and the foreground grass sways.",
+ "camera": "The camera pushes in slowly from a low angle.",
+ "plot_ru": "Кадр 4 (спина к спине, ниже ракурс). Герои вместе поворачиваются на четверть оборота, рыцарь широко отмахивает двуручником влево, разбойница выбрасывает клинок вправо; призрачные скелеты позади делают шаг ближе. Плащ и хвост развеваются, камера медленно приближается снизу."
+}

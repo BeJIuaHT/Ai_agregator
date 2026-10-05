@@ -19,7 +19,7 @@ HDR=()
 [ -n "${HF_TOKEN:-}" ] && HDR=(-H "Authorization: Bearer $HF_TOKEN")
 
 size_of() {  # final Content-Length after redirects
-  curl -sIL ${HDR[@]+"${HDR[@]}"} "$1" | tr -d '\r' | awk 'tolower($1)=="content-length:"{l=$2} END{print l+0}'
+  curl -sIL ${HDR[@]+"${HDR[@]}"} "$1" | tr -d '\r' | awk 'tolower($1)=="content-length:"{l=$2} END{printf "%.0f", l+0}'
 }
 
 chunk_dl() {  # url part start end  (3 attempts; a retry rewrites the same byte range)

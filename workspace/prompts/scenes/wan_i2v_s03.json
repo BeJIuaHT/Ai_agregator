@@ -1,0 +1,15 @@
+{
+ "format": "wan_i2v",
+ "style": "wan_i2v_anime",
+ "negative": "wan_i2v_anime",
+ "motion": "",
+ "start_frame": "workspace/archive/бой_в_лесу_дубль_2/кадр_3.4.png",
+ "labels": {
+  "knight": "characters/kn_knight_label",
+  "rogue": "characters/rg_rogue_label"
+ },
+ "seen": "Extreme low angle against a cloudy sky: red-haired rogue (left) in a mid-air leap, dagger raised high in her right hand, second dagger low; the knight (right) leaning back at a diagonal, big curved blade held out to the right. Both look airborne or off balance; grassy hill at the bottom right. No monsters.",
+ "action": "{rogue} drops out of her leap and slashes her raised dagger down at {knight}. Leaning back, he whips his big blade across to meet it. The blades clash between them with a flash of sparks, and the impact throws them apart, her red hair whipping behind her while he twists away.",
+ "camera": "The camera stays low and tilts up slightly to follow them. Clouds drift slowly behind.",
+ "plot_ru": "Кадр 3 (низкий ракурс, небо). В кадре не гоблин, а рыцарь: разбойница в прыжке рубит кинжалом сверху, рыцарь встречает клинком, искры, удар разносит их в стороны. Камера снизу, чуть вверх за ними."
+}
