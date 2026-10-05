@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Галерея для workspace/output: превью, сортировка по имени/времени, архивация.
+"""Галерея для workspace/output: картинки и видео, сортировка по имени/времени, архивация.
 
 Запуск:  python3 workspace/scripts/gallery_server.py [--port 9000] [--host 0.0.0.0]
 Архивация переносит файл из output/<путь> в archive/<тот же путь> (структура папок сохраняется).
 Доступ открытый, без токена (любой, кто знает адрес и порт, может смотреть и архивировать).
 Перезапуск после правок: workspace/scripts/restart_gallery.sh
-Превью строятся через Pillow, если он установлен (кэш в archive/../.thumbs), иначе отдаются оригиналы.
+Превью картинок строятся через Pillow, если он установлен (кэш в archive/../.thumbs), иначе отдаются оригиналы.
+Видео (mp4/webm/mov) играют прямо в карточке (отдаются с поддержкой Range); промт читается из метаданных mp4.
 """
 import argparse
 import hashlib
 import json
 import mimetypes
+import re
 import shutil
 import struct
 import sys
@@ -26,6 +28,8 @@ except ImportError:
 
 WORKSPACE = Path(__file__).resolve().parent.parent
 IMG_EXT = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+VIDEO_EXT = {".mp4", ".webm", ".mov"}
+MEDIA_EXT = IMG_EXT | VIDEO_EXT
 THUMB_SIZE = 360
 lock = threading.Lock()
 
@@ -46,13 +50,14 @@ h2{margin:18px 0 8px;font-size:15px;opacity:.8;font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
 .card{background:#20232a;border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
 .card img{width:100%;aspect-ratio:1;object-fit:cover;background:#111;cursor:zoom-in}
+.card video{width:100%;aspect-ratio:1;object-fit:contain;background:#111}
 .meta{padding:6px 8px;font-size:12px;word-break:break-all}
 .meta small{display:block;opacity:.6;margin-top:2px}
 .card button{margin:0 8px 8px}
 .card pre{margin:0 8px 8px;padding:6px;background:#111;border-radius:6px;font-size:11px;
   white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;user-select:text}
 #lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:5}
-#lb img{max-width:96vw;max-height:96vh}
+#lb img,#lb video{max-width:96vw;max-height:96vh}
 </style></head><body>
 <header>
   <button id="tab-output">Картинки</button>
@@ -61,39 +66,53 @@ h2{margin:18px 0 8px;font-size:15px;opacity:.8;font-weight:600}
     <select id="sort"><option value="name">по имени</option><option value="time">по времени</option></select>
   </label>
   <select id="dir"><option value="asc">↑ по возрастанию</option><option value="desc">↓ по убыванию</option></select>
+  <select id="kind"><option value="all">всё</option><option value="image">картинки</option><option value="video">видео</option></select>
   <button id="reload">Обновить</button>
   <span id="count"></span>
 </header>
 <main id="main"></main>
-<div id="lb"><img id="lbimg"></div>
+<div id="lb"><img id="lbimg" hidden><video id="lbvid" controls loop hidden></video></div>
 <script>
 const $=id=>document.getElementById(id);
 const natural=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 let files=[], area=localStorage.getItem('galArea')||'output';
 const saved=JSON.parse(localStorage.getItem('gal')||'{}');
-$('sort').value=saved.sort||'time'; $('dir').value=saved.dir||'desc';
+$('sort').value=saved.sort||'time'; $('dir').value=saved.dir||'desc'; $('kind').value=saved.kind||'all';
 
 function render(){
-  localStorage.setItem('gal',JSON.stringify({sort:$('sort').value,dir:$('dir').value}));
+  localStorage.setItem('gal',JSON.stringify({sort:$('sort').value,dir:$('dir').value,kind:$('kind').value}));
   const k=$('sort').value, m=$('dir').value==='asc'?1:-1;
   const cmp=k==='name'?(a,b)=>natural.compare(a.name,b.name):(a,b)=>a.mtime-b.mtime;
   const groups={};
-  for(const f of files){(groups[f.dir]??=[]).push(f)}
+  const shown=files.filter(f=>$('kind').value==='all'||f.kind===$('kind').value);
+  for(const f of shown){(groups[f.dir]??=[]).push(f)}
   const main=$('main'); main.textContent='';
   for(const d of Object.keys(groups).sort(natural.compare)){
     const h=document.createElement('h2'); h.textContent=d||'/'; main.append(h);
     const g=document.createElement('div'); g.className='grid'; main.append(g);
     for(const f of groups[d].sort((a,b)=>m*cmp(a,b))) g.append(card(f));
   }
-  $('count').textContent=files.length+' файлов';
+  $('count').textContent=shown.length+' файлов';
   $('tab-output').style.outline=area==='output'?'2px solid #6aa7ff':'';
   $('tab-archive').style.outline=area==='archive'?'2px solid #6aa7ff':'';
 }
+function openLb(f){
+  const v=f.kind==='video';
+  $('lbimg').hidden=v; $('lbvid').hidden=!v;
+  if(v){$('lbvid').src='/file?'+q(f);$('lbvid').play().catch(()=>{})} else $('lbimg').src='/file?'+q(f);
+  $('lb').style.display='flex';
+}
+function closeLb(){$('lb').style.display='none';$('lbimg').src='';$('lbvid').pause();$('lbvid').removeAttribute('src');$('lbvid').load()}
 const q=f=>'p='+encodeURIComponent(f.path)+'&a='+area;
 function card(f){
   const c=document.createElement('div'); c.className='card';
-  const img=document.createElement('img'); img.loading='lazy';
-  img.src='/thumb?'+q(f); img.onclick=()=>{$('lbimg').src='/file?'+q(f);$('lb').style.display='flex'};
+  let media;
+  if(f.kind==='video'){
+    media=document.createElement('video'); media.src='/file?'+q(f)+'#t=0.1';
+    media.controls=true; media.muted=true; media.loop=true; media.playsInline=true; media.preload='metadata';
+  } else {
+    media=document.createElement('img'); media.loading='lazy'; media.src='/thumb?'+q(f);
+  }
   const meta=document.createElement('div'); meta.className='meta';
   meta.textContent=f.name;
   const s=document.createElement('small');
@@ -112,27 +131,30 @@ function card(f){
       const r=await fetch('/api/prompt?'+q(f)); const p=await r.json();
       pre.textContent=!p?'Промт в файле не найден':
         'Positive:\\n'+p.positive+(p.negative?'\\n\\nNegative:\\n'+p.negative:'')+
-        ['seed','steps','cfg'].filter(k=>k in p).map(k=>'\\n'+k+': '+p[k]).join('');
+        ['seed','noise_seed','steps','cfg'].filter(k=>k in p).map(k=>'\\n'+k+': '+p[k]).join('');
       pre.dataset.loaded=1;
     }
     pre.hidden=false;
   };
-  c.append(img,meta,pb,pre,b); return c;
+  const btns=[pb];
+  const ob=document.createElement('button'); ob.textContent='Открыть';
+  ob.onclick=()=>openLb(f); btns.push(ob);
+  if(f.kind!=='video') media.onclick=()=>openLb(f);
+  c.append(media,meta,...btns,pre,b); return c;
 }
 async function load(){files=await (await fetch('/api/list?a='+area)).json();render()}
 for(const a of ['output','archive'])
   $('tab-'+a).onclick=()=>{area=a;localStorage.setItem('galArea',a);load()};
-$('sort').onchange=$('dir').onchange=render; $('reload').onclick=load;
-$('lb').onclick=()=>{$('lb').style.display='none';$('lbimg').src=''};
+$('sort').onchange=$('dir').onchange=$('kind').onchange=render; $('reload').onclick=load;
+$('lb').onclick=e=>{if(e.target!==$('lbvid'))closeLb()};
+document.onkeydown=e=>{if(e.key==='Escape')closeLb()};
 load();
 </script></body></html>
 """
 
 
-def read_prompt(path):
-    """Достаёт промт из PNG-метаданных ComfyUI (tEXt 'prompt'): positive/negative/seed."""
-    if path.suffix.lower() != ".png":
-        return None
+def png_graph(path):
+    """Граф ComfyUI из PNG (tEXt 'prompt')."""
     data = path.read_bytes()
     graph, i = None, 8
     while i + 8 <= len(data):
@@ -145,6 +167,53 @@ def read_prompt(path):
         if kind == b"IDAT":  # метаданные ComfyUI идут до данных изображения
             break
         i += 12 + n
+    return graph
+
+
+def mp4_graph(path):
+    """Граф ComfyUI из mp4: moov/udta/meta -> keys + ilst (QuickTime-метаданные, ключ 'prompt')."""
+    with path.open("rb") as f:
+        pos, size = 0, path.stat().st_size
+        while pos + 8 <= size:  # верхний уровень: ищем moov, не читая mdat
+            f.seek(pos)
+            n, kind = struct.unpack(">I4s", f.read(8))
+            hdr = 8
+            if n == 1:
+                n, hdr = struct.unpack(">Q", f.read(8))[0], 16
+            elif n == 0:
+                n = size - pos
+            if n < hdr:
+                return None
+            if kind == b"moov":
+                moov = f.read(n - hdr)
+                break
+            pos += n
+        else:
+            return None
+    keys_at = moov.find(b"keys")
+    ilst_at = moov.find(b"ilst")
+    if keys_at < 0 or ilst_at < 0:
+        return None
+    count = struct.unpack(">I", moov[keys_at + 8:keys_at + 12])[0]
+    names, i = [], keys_at + 12
+    for _ in range(count):  # keys: size, namespace(4), name
+        n = struct.unpack(">I", moov[i:i + 4])[0]
+        names.append(moov[i + 8:i + n].decode("utf-8", "replace"))
+        i += n
+    i = ilst_at + 4
+    end = ilst_at - 4 + struct.unpack(">I", moov[ilst_at - 4:ilst_at])[0]
+    while i + 16 <= end:  # item: size, key index(4), data atom: size, 'data', type(4), locale(4), payload
+        n, idx = struct.unpack(">II", moov[i:i + 8])
+        if 1 <= idx <= len(names) and names[idx - 1] == "prompt":
+            return json.loads(moov[i + 24:i + n].decode("utf-8", "replace"))
+        i += n
+    return None
+
+
+def read_prompt(path):
+    """Достаёт промт из метаданных ComfyUI (PNG или mp4): positive/negative/seed."""
+    ext = path.suffix.lower()
+    graph = png_graph(path) if ext == ".png" else mp4_graph(path) if ext == ".mp4" else None
     if not isinstance(graph, dict):
         return None
 
@@ -158,7 +227,7 @@ def read_prompt(path):
         inp = node.get("inputs", {})
         if "positive" in inp and "negative" in inp:  # сэмплер
             res["positive"], res["negative"] = text_of(inp["positive"]), text_of(inp["negative"])
-            for k in ("seed", "steps", "cfg"):
+            for k in ("seed", "noise_seed", "steps", "cfg"):
                 if isinstance(inp.get(k), (int, float)):
                     res[k] = inp[k]
             break
@@ -200,11 +269,12 @@ class Handler(BaseHTTPRequestHandler):
         if not base.is_dir():
             return out
         for p in base.rglob("*"):
-            if p.is_file() and p.suffix.lower() in IMG_EXT:
+            if p.is_file() and p.suffix.lower() in MEDIA_EXT:
                 st = p.stat()
                 rel = p.relative_to(base)
                 out.append({"path": rel.as_posix(), "name": p.name, "dir": "" if rel.parent == Path(".") else rel.parent.as_posix(),
-                            "mtime": st.st_mtime, "size": st.st_size})
+                            "mtime": st.st_mtime, "size": st.st_size,
+                            "kind": "video" if p.suffix.lower() in VIDEO_EXT else "image"})
         return out
 
     def thumb_for(self, src):
@@ -221,8 +291,36 @@ class Handler(BaseHTTPRequestHandler):
         return dst, "image/jpeg"
 
     def send_file(self, path, ctype=None):
+        """Отдаёт файл потоком с поддержкой Range (нужен <video>: Safari и перемотка)."""
         ctype = ctype or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-        self.send_bytes(200, path.read_bytes(), ctype, {"Cache-Control": "private, max-age=3600"})
+        size = path.stat().st_size
+        start, end, code = 0, size - 1, 200
+        m = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range", "").strip())
+        if m and (m[1] or m[2]):
+            if m[1]:
+                start, end = int(m[1]), min(int(m[2]), size - 1) if m[2] else size - 1
+            else:  # суффикс: последние N байт
+                start = max(size - int(m[2]), 0)
+            if start >= size or start > end:
+                return self.send_bytes(416, b"", extra={"Content-Range": f"bytes */{size}"})
+            code = 206
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(max(end - start + 1, 0)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Cache-Control", "private, max-age=3600")
+        if code == 206:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        try:
+            with path.open("rb") as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0 and (chunk := f.read(min(1 << 20, left))):
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        except (BrokenPipeError, ConnectionResetError):  # браузер оборвал загрузку видео
+            pass
 
     # ---- routes
     def do_GET(self):
@@ -234,7 +332,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_bytes(200, json.dumps(self.list_files(self.area(q))).encode(), "application/json")
         if url.path == "/api/prompt":
             src = self.resolve(unquote(q.get("p", [""])[0]), self.area(q))
-            if not src or not src.is_file() or src.suffix.lower() not in IMG_EXT:
+            if not src or not src.is_file() or src.suffix.lower() not in MEDIA_EXT:
                 return self.send_bytes(404, b"not found")
             try:
                 info = read_prompt(src)
@@ -243,9 +341,9 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_bytes(200, json.dumps(info).encode(), "application/json")
         if url.path in ("/file", "/thumb"):
             src = self.resolve(unquote(q.get("p", [""])[0]), self.area(q))
-            if not src or not src.is_file() or src.suffix.lower() not in IMG_EXT:
+            if not src or not src.is_file() or src.suffix.lower() not in MEDIA_EXT:
                 return self.send_bytes(404, b"not found")
-            if url.path == "/file":
+            if url.path == "/file" or src.suffix.lower() in VIDEO_EXT:  # у видео превью нет
                 return self.send_file(src)
             try:
                 path, ctype = self.thumb_for(src)
@@ -264,7 +362,7 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError):
             return self.send_bytes(400, b"bad request")
         src = self.resolve(rel, src_base)
-        if not src or not src.is_file() or src.suffix.lower() not in IMG_EXT:
+        if not src or not src.is_file() or src.suffix.lower() not in MEDIA_EXT:
             return self.send_bytes(404, b"not found")
         with lock:
             dst = dst_base / src.relative_to(src_base)
