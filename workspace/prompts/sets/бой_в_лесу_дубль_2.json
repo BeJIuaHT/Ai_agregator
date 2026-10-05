@@ -1,0 +1,7 @@
+{
+  "name": "бой_в_лесу_дубль_2",
+  "scenes": ["s01_surrounded_wide", "s02_knight_swing", "s03_rogue_leap", "s04_back_to_back", "s05_finale"],
+  "seed_base": 424200,
+  "variants": 6,
+  "spare_variants": 4
+}

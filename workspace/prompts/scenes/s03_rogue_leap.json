@@ -1,0 +1,27 @@
+{
+ "lead": "1boy, 1girl, safe",
+ "location": "day_plain_forest",
+ "style": "dark_fantasy_daylight",
+ "quality": "quality_animagine",
+ "negative": "day_darkfantasy",
+ "format": "tags",
+ "motion": "",
+ "shot": "from below, low angle, foreshortening, full body",
+ "characters": [
+  {
+   "character": "kn_knight_body",
+   "outfit": "kn_light_armor_greatsword",
+   "action": "background, standing, small"
+  },
+  {
+   "character": "rg_rogue_body",
+   "outfit": "rg_light_outfit_daggers",
+   "action": "jumping, midair, reverse grip, daggers raised, hair flying, smirk"
+  }
+ ],
+ "extras": [
+  "s03_undead_zombie"
+ ],
+ "action": "leaping over zombie",
+ "plot_ru": "Разбойница в прыжке над зомби, кинжалы в обратном хвате занесены для удара, рыжие волосы развеваются. Камера снизу, на фоне ясного неба с облаками. Рыцарь небольшой на заднем плане слева, держит меч. Зомби внизу тянется к ней."
+}

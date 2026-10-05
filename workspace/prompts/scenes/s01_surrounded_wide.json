@@ -1,0 +1,27 @@
+{
+ "lead": "1boy, 1girl, safe",
+ "location": "day_plain_forest",
+ "style": "dark_fantasy_daylight",
+ "quality": "quality_animagine",
+ "negative": "day_darkfantasy",
+ "format": "tags",
+ "motion": "",
+ "shot": "wide shot, full body, from above, side by side",
+ "characters": [
+  {
+   "character": "kn_knight_body",
+   "outfit": "kn_light_armor_greatsword",
+   "action": "guard stance, looking away"
+  },
+  {
+   "character": "rg_rogue_body",
+   "outfit": "rg_light_outfit_daggers",
+   "action": "crouching, reverse grip, looking away"
+  }
+ ],
+ "extras": [
+  "s01_undead_wide"
+ ],
+ "action": "closing in from both sides",
+ "plot_ru": "Establishing. Широкий план чуть сверху. Рыцарь слева, разбойница справа, стоят плечом к плечу в центре равнины. Меч рыцаря опущен в стойке, кинжалы разбойницы в обратном хвате. Скелеты и зомби сходятся с обеих сторон, лес на горизонте, яркое полуденное солнце."
+}

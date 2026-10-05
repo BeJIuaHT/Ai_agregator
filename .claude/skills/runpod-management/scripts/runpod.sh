@@ -4,7 +4,7 @@
 # Read-only: gpus | dcs | pods | pod <id> | volumes
 # Billable (need RUNPOD_ALLOW_SPEND=yes): create-volume | create-pod
 # Billable, no volume: create-pod-novol <name> [SECURE|COMMUNITY] [disk_gb]
-# Stop/cleanup: stop <id> | terminate <id> | delete-volume <id>
+# Stop/cleanup: start <id> (billable) | stop <id> | terminate <id> | delete-volume <id>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
@@ -74,6 +74,7 @@ PY
 )
     rest POST /pods "$body" ;;
   stop)          rest POST "/pods/${1:?pod id}/stop" ;;
+  start)         need_spend; rest POST "/pods/${1:?pod id}/start" ;;
   terminate)     rest DELETE "/pods/${1:?pod id}" ;;
   delete-volume) rest DELETE "/networkvolumes/${1:?volume id}" ;;
   *) sed -n '2,7p' "${BASH_SOURCE[0]}" ;;

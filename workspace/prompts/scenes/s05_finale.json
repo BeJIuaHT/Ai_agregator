@@ -1,0 +1,27 @@
+{
+ "lead": "1boy, 1girl, safe",
+ "location": "day_plain_forest",
+ "style": "dark_fantasy_daylight",
+ "quality": "quality_animagine",
+ "negative": "day_darkfantasy",
+ "format": "tags",
+ "motion": "",
+ "shot": "cowboy shot, low angle, wind",
+ "characters": [
+  {
+   "character": "kn_knight_body",
+   "outfit": "kn_light_armor_greatsword",
+   "action": "sword planted in ground, looking at viewer, serious"
+  },
+  {
+   "character": "rg_rogue_body",
+   "outfit": "rg_light_outfit_daggers",
+   "action": "daggers lowered, looking at viewer, smile, hair blowing"
+  }
+ ],
+ "extras": [
+  "s05_undead_crumbling"
+ ],
+ "action": "victory",
+ "plot_ru": "Финал. Рыцарь слева, меч остриём в землю; разбойница справа с опущенными кинжалами, оба смотрят в камеру. За ними последние скелеты рассыпаются, трава усыпана костями. Камера чуть снизу, героический ракурс, тот же яркий полдень."
+}

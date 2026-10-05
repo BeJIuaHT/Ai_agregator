@@ -5,6 +5,8 @@ __pycache__/
 .venv/
 workspace/keys/
 workspace/output/
+workspace/archive/
+workspace/.thumbs/
 *.pem
 id_*
 !*.pub

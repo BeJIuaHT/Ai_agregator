@@ -6,6 +6,7 @@ No billable RunPod resources may be created until the user explicitly says so.
 Read-only calls (list GPUs, list pods/volumes) are free and allowed.
 
 ## Orchestration
+Prompts: prompt-engineer-agent runs before the pipeline (any time, no RunPod needed) and leaves ready prompts in `workspace/prompts/built/`.
 Sequence: model-selector-agent (cost plan, read-only) -> devops-agent -> provisioner-agent -> pipeline-agent -> qa-agent.
 No provisioning starts without a `workspace/plan.md` approved by the user.
 Use sequential-thinking before any multi-step infra action. Every agent reports
@@ -19,4 +20,4 @@ Keys live only in `.env` / `workspace/keys/` (git-ignored). Never print RUNPOD_A
 - fetch MCP = GET only, no custom headers -> use it for public docs / unauthenticated ComfyUI GETs.
 - Authenticated RunPod calls go through `.claude/skills/runpod-management/scripts/runpod.sh` (curl).
 - Skills: runpod-management, comfyui-environment-setup, comfyui-api-workflow.
-- Agents: model-selector-agent, devops-agent, provisioner-agent, pipeline-agent, qa-agent (.claude/agents/).
+- Agents: prompt-engineer-agent, model-selector-agent, devops-agent, provisioner-agent, pipeline-agent, qa-agent (.claude/agents/).
