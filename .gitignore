@@ -10,3 +10,4 @@ workspace/.thumbs/
 *.pem
 id_*
 !*.pub
+workspace/.gallery.pid

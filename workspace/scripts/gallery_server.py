@@ -3,15 +3,14 @@
 
 Запуск:  python3 workspace/scripts/gallery_server.py [--port 9000] [--host 0.0.0.0]
 Архивация переносит файл из output/<путь> в archive/<тот же путь> (структура папок сохраняется).
-Доступ защищён токеном (печатается при старте; после первого входа ставится cookie).
+Доступ открытый, без токена (любой, кто знает адрес и порт, может смотреть и архивировать).
+Перезапуск после правок: workspace/scripts/restart_gallery.sh
 Превью строятся через Pillow, если он установлен (кэш в archive/../.thumbs), иначе отдаются оригиналы.
 """
 import argparse
 import hashlib
-import http.cookies
 import json
 import mimetypes
-import secrets
 import shutil
 import struct
 import sys
@@ -174,7 +173,6 @@ class Handler(BaseHTTPRequestHandler):
     output: Path
     archive: Path
     thumbs: Path
-    token: str
 
     def log_message(self, fmt, *args):
         sys.stderr.write("%s %s\n" % (self.address_string(), fmt % args))
@@ -188,12 +186,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
-
-    def authorized(self, query):
-        cookie = http.cookies.SimpleCookie(self.headers.get("Cookie", ""))
-        got = cookie["gal_token"].value if "gal_token" in cookie else ""
-        given = query.get("token", [got])[0]
-        return secrets.compare_digest(given, self.token)
 
     def resolve(self, rel, base):
         """Относительный путь -> абсолютный внутри base, иначе None (защита от ../)."""
@@ -236,11 +228,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
         q = parse_qs(url.query)
-        if not self.authorized(q):
-            return self.send_bytes(403, "Нужен токен: откройте /?token=...".encode())
-        headers = {"Set-Cookie": f"gal_token={self.token}; HttpOnly; SameSite=Strict; Path=/"}
         if url.path == "/":
-            return self.send_bytes(200, PAGE.encode(), "text/html; charset=utf-8", headers)
+            return self.send_bytes(200, PAGE.encode(), "text/html; charset=utf-8")
         if url.path == "/api/list":
             return self.send_bytes(200, json.dumps(self.list_files(self.area(q))).encode(), "application/json")
         if url.path == "/api/prompt":
@@ -270,8 +259,6 @@ class Handler(BaseHTTPRequestHandler):
         if route not in ("/api/archive", "/api/restore"):
             return self.send_bytes(404, b"not found")
         src_base, dst_base = (self.output, self.archive) if route == "/api/archive" else (self.archive, self.output)
-        if not self.authorized({}):
-            return self.send_bytes(403, b"forbidden")
         try:
             rel = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))["path"]
         except (ValueError, KeyError, TypeError):
@@ -297,17 +284,16 @@ def main():
     ap.add_argument("--port", type=int, default=9000)
     ap.add_argument("--output", type=Path, default=WORKSPACE / "output")
     ap.add_argument("--archive", type=Path, default=WORKSPACE / "archive")
-    ap.add_argument("--token", default=secrets.token_urlsafe(12))
     a = ap.parse_args()
 
     out, arc = a.output.resolve(), a.archive.resolve()
     if out == arc or out in arc.parents or arc in out.parents:
         sys.exit("archive не должен лежать внутри output и наоборот")
-    Handler.output, Handler.archive, Handler.token = out, arc, a.token
+    Handler.output, Handler.archive = out, arc
     Handler.thumbs = arc.parent / ".thumbs"
     if Image is None:
         print("Pillow не найден: превью = оригиналы (pip install pillow для лёгких превью)")
-    print(f"Открыть: http://<IP>:{a.port}/?token={a.token}")
+    print(f"Слушаю {a.host}:{a.port}, открыть: http://<IP>:{a.port}/")
     ThreadingHTTPServer((a.host, a.port), Handler).serve_forever()
 
 
