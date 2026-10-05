@@ -9,7 +9,7 @@ description: Convert ComfyUI visual graphs to API-format JSON, validate them, su
 - UI graph JSON (has `nodes` + `links`) **cannot** be sent to `/prompt`.
 - Export from ComfyUI: Settings -> enable Dev mode -> **Save (API Format)**. Result: `{ "<id>": {"class_type": "...", "inputs": {...}}, ... }`.
 - A link input is `["<source_node_id>", <output_index>]`; literals are plain values.
-- Store workflows in `workspace/workflows/<model>_<purpose>.api.json`; parametrize prompt/seed/frames by editing known node ids, not by regex.
+- Store workflows in `workspace/workflows/<model>_<purpose>.json` (always API format, e.g. `anime_sdxl_t2i.json`); parametrize prompt/seed/frames by editing known node ids, not by regex.
 
 ## Endpoints
 | Endpoint | Use |

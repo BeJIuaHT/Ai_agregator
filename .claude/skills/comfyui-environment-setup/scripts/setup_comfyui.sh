@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run ON the pod (via ssh). Installs ComfyUI + Manager + video nodes into the Network Volume.
+# Run ON the pod (via ssh). Installs ComfyUI + Manager + video nodes into /workspace (volume or container disk).
 # Idempotent: safe to re-run. Usage: bash setup_comfyui.sh [extra_node_git_url ...]
 set -euo pipefail
 
@@ -7,7 +7,7 @@ WS="${WS:-/workspace}"
 COMFY="$WS/ComfyUI"
 NODES="$COMFY/custom_nodes"
 
-apt-get update -qq && apt-get install -y -qq aria2 git ffmpeg curl >/dev/null
+apt-get update -qq && apt-get install -y -qq git ffmpeg curl >/dev/null
 
 [ -d "$COMFY/.git" ] || git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFY"
 
@@ -15,6 +15,11 @@ apt-get update -qq && apt-get install -y -qq aria2 git ffmpeg curl >/dev/null
 [ -d "$WS/venv" ] || python3 -m venv --system-site-packages "$WS/venv"
 . "$WS/venv/bin/activate"
 pip install -q -U pip
+# Current ComfyUI needs torch 2.7+ (the runpod/pytorch:2.4.0 image ships 2.4.1 and ComfyUI crashes on it)
+if ! python -c 'import sys, torch; sys.exit(0 if tuple(map(int, torch.__version__.split("+")[0].split(".")[:2])) >= (2, 7) else 1)' 2>/dev/null; then
+  pip install -q "torch==${TORCH_VERSION:-2.7.1}" torchvision torchaudio --index-url "${TORCH_INDEX:-https://download.pytorch.org/whl/cu126}"
+fi
+python -c 'import torch; print("torch", torch.__version__, "cuda", torch.cuda.is_available())'
 pip install -q -r "$COMFY/requirements.txt"
 
 clone_node() {

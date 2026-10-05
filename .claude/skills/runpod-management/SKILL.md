@@ -7,15 +7,32 @@ description: Build and send RunPod API requests (REST v1 + GraphQL) to find GPUs
 
 All authenticated calls go through `scripts/runpod.sh` (curl + Bearer token from `.env`).
 The `fetch` MCP cannot send auth headers or POST, so do not use it for RunPod.
-**Creating anything billable is blocked unless `RUNPOD_ALLOW_SPEND=yes`.** During preparation it stays `no`.
+**Creating anything billable is blocked unless `RUNPOD_ALLOW_SPEND=yes`.** The flag stays `no` until the user approves a plan; never edit it yourself.
 
-## Workflow (strict order)
+## Commands
+| Command | Notes |
+|---|---|
+| `gpus`, `dcs`, `pods`, `pod <id>`, `volumes` | read-only, free |
+| `create-pod-novol <name> [SECURE\|COMMUNITY] [disk_gb=30]` | billable. No volume, no datacenter pin, GPU chain A4000 -> A4500 -> 4000 Ada -> 3090 -> 4090. Cloud defaults to SECURE (Community is cheaper: pass it explicitly). GPUs listed above `RUNPOD_MAX_PRICE` (default 0.25 $/h) are dropped; none left = abort, nothing created |
+| `create-volume <name> <size_gb> <dcId>` + `create-pod <name> <volumeId> <dcId> <gpuTypeId> [cloud]` | billable, volume path (see below) |
+| `start <id>` | billable. A stopped Community pod often cannot restart (host has no free GPU): do not plan on resuming |
+| `stop <id>` | keeps the disk, still bills disk |
+| `terminate <id>` | full delete: do this once outputs are downloaded |
+| `terminate-all` | emergency cleanup: deletes ALL pods, leaves volumes, prints what is left. Free, no flag needed |
+| `delete-volume <id>` | volume bills until deleted |
+
+Env overrides: `RUNPOD_IMAGE` (default `runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04`, torch 2.4.1; `setup_comfyui.sh` upgrades torch to 2.7.1 on it, or pass an image with torch 2.7+ whose tag you verified), `RUNPOD_MAX_PRICE`.
+
+## Workflow, no volume (current default for short runs)
+1. `runpod.sh gpus` (read-only): check price and stock. 2. `create-pod-novol <name> COMMUNITY 30`; compare the reported price with the limit given by the orchestrator, if higher: `terminate` at once. 3. Poll `pod <id>` until `desiredStatus=RUNNING` and `publicIp`/`portMappings` (SSH on the mapped port for 22/tcp). 4. After the run `terminate <id>`, then `pods` and `volumes` must be `[]`. Community pod `/workspace` is only about 20 GB.
+
+## Workflow with a Network Volume (optional: weights reused across sessions)
 1. `runpod.sh gpus` — read-only; pick GPU by priority: RTX 4090 -> A100 80GB -> H100 (check `stockStatus`, price; pick Secure vs Community).
 2. `runpod.sh dcs` — choose a datacenter where the GPU is in stock. **A Network Volume is bound to one datacenter, and the Pod must run in that same datacenter.**
 3. `runpod.sh create-volume <name> <size_gb> <dcId>` — model storage (Wan2.1 14B needs ~100-150 GB).
 4. `runpod.sh create-pod <name> <volumeId> <dcId> <gpuTypeId> [SECURE|COMMUNITY]`
 5. Poll `runpod.sh pod <id>` until `desiredStatus=RUNNING` and `portMappings`/`publicIp` are present (SSH on mapped port for 22/tcp).
-6. When done: `stop <id>` (keeps container disk, still bills disk) or `terminate <id>` (full delete). Volume keeps billing until `delete-volume`.
+6. When done: `terminate <id>`; the volume keeps billing until `delete-volume`.
 
 ## GPU type IDs (REST `gpuTypeIds`)
 - `NVIDIA GeForce RTX 4090`
